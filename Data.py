@@ -5,6 +5,7 @@ import csv
 import pandas as pd
 import matplotlib.pyplot as plt
 import quandl
+import numpy as np
 
 
 class Data:
@@ -56,6 +57,7 @@ class Data:
     def csv_reformat(self, resample_s=1):
         df = pd.read_csv(self._file, parse_dates=False)
         df_resampled = pd.DataFrame(columns=['Time', 'Low', 'High', 'Open', 'Close', 'Volume'])
+        df = df.sort['Time']
         if resample_s != 1:
             curr_time = df.loc[0, 'Time']
             for i in range(len(df)):
@@ -66,7 +68,8 @@ class Data:
         df.to_csv(self._file, index=False)
 
     # Plots a matplotlib graph of the data object
-    def plot_graph(self, close=False, minim=False, maxim=False, min_value=False, max_value=False, buy_sell=False, rsi=False):
+    def plot_graph(self, close=False, minim=False, maxim=False, min_value=False, max_value=False, buy_sell=False,
+                   rsi=False):
 
         df = pd.read_csv(self._file, parse_dates=False)
 
@@ -182,54 +185,53 @@ class Data:
     # Identifies the minima and maxima of the graph and assigns values to how min and max they are
     def min_max_values(self):
         df = pd.read_csv(self._file, parse_dates=False)
-        df['MinValue'] = 0
-        df['MaxValue'] = 0
+        num_array = df['Close'].values
 
-        prev_min = 0
-        next_min = 0
-        prev_max = 0
-        next_max = 0
+        min_values = np.zeros((1, num_array.size))
+        max_values = np.zeros((1, num_array.size))
 
-        for i in range(len(df)):
-            print(i)
-            curr_value = df.loc[i, 'Close']
+        for i, row in np.ndenumerate(num_array):
+            next_num_array = num_array[(i[0]+1):]
+            prev_num_array = np.flip(num_array[:(i[0]+1)])
 
-            for j in list(range(i)[::-1]):
-                prev_min = 0
-                if curr_value > df.loc[j, 'Close']:
-                    prev_min = j
+            curr_value = row
+            max_val = len(num_array)
+            prev_min = i[0]
+            next_min = max_val - i[0]
+            prev_max = i[0]
+            next_max = max_val - i[0]
+
+            for j, in_row in np.ndenumerate(prev_num_array):
+                if curr_value > in_row:
+                    prev_min = j[0]
                     break
-            for k in range(i, len(df)):
-                next_min = 0
-                if curr_value > df.loc[k, 'Close']:
-                    next_min = k-i
-                    break
-
-            for j in list(range(i)[::-1]):
-                prev_max = 0
-                if curr_value < df.loc[j, 'Close']:
-                    prev_max = j
-                    break
-            for k in range(i, len(df)):
-                next_max = 0
-                if curr_value < df.loc[k, 'Close']:
-                    next_max = k-i
+            for j, in_row in np.ndenumerate(next_num_array):
+                if curr_value > in_row:
+                    next_min = j[0]
                     break
 
-            df.loc[i, 'MinValue'] = prev_min * next_min
-            df.loc[i, 'MaxValue'] = prev_max * next_max
+            for j, in_row in np.ndenumerate(prev_num_array):
+                if curr_value < in_row:
+                    prev_max = j[0]
+                    break
+            for j, in_row in np.ndenumerate(next_num_array):
+                if curr_value < in_row:
+                    next_max = j[0]
+                    break
+            np.put(min_values, i[0], (prev_min+next_min)-abs(prev_min-next_min))
+            np.put(max_values, i[0], (prev_max+next_max)-abs(prev_max-next_max))
 
-            df.to_csv(self._file, index=False)
+        df['MinValue'] = min_values[0]
+        df['MaxValue'] = max_values[0]
+
+        df.to_csv(self._file, index=False)
+
 
 def main():
 
     sec_obj = Data(csv_file='data.csv')
     sec_obj.min_max_values()
-    # sec_obj.calc_rsi()
-    # sec_obj.rsi_bot()
-    # print(sec_obj.back_test())
     sec_obj.plot_graph(close=True, max_value=True)
-
 
 
 if __name__ == "__main__":
@@ -240,4 +242,3 @@ if __name__ == "__main__":
 #   Get Min Max values working, and make it based on time
 #   Import financial library
 #   Adaptive plotting, add subplots for different things
-#
